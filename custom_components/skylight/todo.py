@@ -13,6 +13,7 @@ from homeassistant.components.todo import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -387,7 +388,8 @@ class SkylightUpForGrabsTodo(SkylightMemberChoreTodo):
 
     An up-for-grabs chore has no category. Whoever grabs and ticks it on the
     frame lands in ``completed_category`` only, so it never moves onto that
-    member's queue. Edit, tick and delete work as for a member's chore.
+    member's queue. Edit and delete work as for a member's chore; ticking one
+    off is refused, because the frame must be told who did it.
     """
 
     def __init__(
@@ -417,3 +419,18 @@ class SkylightUpForGrabsTodo(SkylightMemberChoreTodo):
             up_for_grabs=True,
         )
         await self.coordinator.async_request_refresh()
+
+    async def async_update_todo_item(self, item: TodoItem) -> None:
+        # Completing an up-for-grabs chore must name who did it (the API answers
+        # 422 "category_id can't be blank"), and an HA tick carries no person.
+        # Refuse before any write so an edit isn't half-applied.
+        if (
+            item.uid
+            and item.status == TodoItemStatus.COMPLETED
+            and not _chore_is_complete(self._chore_attributes(item.uid))
+        ):
+            raise HomeAssistantError(
+                "Skylight needs to know who did an Up for grabs chore. "
+                "Tick it off on the frame."
+            )
+        await super().async_update_todo_item(item)

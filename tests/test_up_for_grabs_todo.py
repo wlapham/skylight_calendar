@@ -52,6 +52,10 @@ class TodoListEntity:
     pass
 
 
+class HomeAssistantError(Exception):
+    pass
+
+
 def load_todo():
     tree = ast.parse((ROOT / "custom_components/skylight/todo.py").read_text(encoding="utf-8"))
     wanted = {"SkylightMemberChoreTodo", "SkylightUpForGrabsTodo",
@@ -64,6 +68,7 @@ def load_todo():
         "TodoItem": TodoItem, "TodoItemStatus": TodoItemStatus,
         "TodoListEntity": TodoListEntity, "TodoListEntityFeature": TodoListEntityFeature,
         "CoordinatorEntity": CoordinatorEntity, "DeviceInfo": dict,
+        "HomeAssistantError": HomeAssistantError,
         "SkylightSensorCoordinator": object,
         "DOMAIN": "skylight", "CHORE_COMPLETE_STATUSES": {"complete", "completed"},
         "dt_util": NS(now=lambda: datetime(2026, 11, 16, 18, 0)),
@@ -129,10 +134,20 @@ class UpForGrabsTodoTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(kwargs["category_ids"], [])
         self.assertIs(kwargs["up_for_grabs"], True)
 
-    async def test_ticking_an_item_completes_the_chore(self):
+    async def test_ticking_an_item_is_refused_without_touching_the_frame(self):
+        # Skylight answers 422 "category_id can't be blank": completing an up-for-grabs
+        # chore must name who did it, and an HA tick has no "who". Ticks happen on the frame.
+        with self.assertRaises(HomeAssistantError):
+            await self.grabs.async_update_todo_item(
+                TodoItem(uid="2002", summary="Clean dryer vent", status=TodoItemStatus.COMPLETED))
+        self.api.complete_chore.assert_not_awaited()
+        self.api.update_chore.assert_not_awaited()
+
+    async def test_editing_an_item_still_updates_the_chore(self):
         await self.grabs.async_update_todo_item(
-            TodoItem(uid="2002", summary="Clean dryer vent", status=TodoItemStatus.COMPLETED))
-        self.api.complete_chore.assert_awaited_once_with("9001", "2002", "2026-11-16", None)
+            TodoItem(uid="2002", summary="Clean the dryer vent", status=TodoItemStatus.NEEDS_ACTION))
+        self.api.update_chore.assert_awaited_once()
+        self.api.complete_chore.assert_not_awaited()
 
     def test_one_stable_entity_per_frame(self):
         self.assertEqual(self.grabs._attr_unique_id, "skylight_9001_chore_todo_up_for_grabs")
