@@ -55,6 +55,9 @@ async def async_setup_entry(
             )
         )
 
+    # 3) The frame's Up for grabs chores, which belong to no member.
+    entities.append(SkylightUpForGrabsTodo(sensor_coord, api, frame_id, frame_name))
+
     async_add_entities(entities)
 
     known_lists: set[str] = {
@@ -376,4 +379,41 @@ class SkylightMemberChoreTodo(
     async def async_delete_todo_items(self, uids: list[str]) -> None:
         for uid in uids:
             await self._api.delete_chore(self._frame_id, _split_chore_uid(uid)[0])
+        await self.coordinator.async_request_refresh()
+
+
+class SkylightUpForGrabsTodo(SkylightMemberChoreTodo):
+    """The frame's Up for grabs chores as one HA Todo entity.
+
+    An up-for-grabs chore has no category. Whoever grabs and ticks it on the
+    frame lands in ``completed_category`` only, so it never moves onto that
+    member's queue. Edit, tick and delete work as for a member's chore.
+    """
+
+    def __init__(
+        self,
+        coordinator: SkylightSensorCoordinator,
+        api: SkylightAPI,
+        frame_id: str,
+        frame_name: str,
+    ) -> None:
+        super().__init__(coordinator, api, frame_id, frame_name, "up_for_grabs", "")
+        self._attr_name = "Up for grabs"
+
+    def _member_chores(self) -> list[dict]:
+        raw = (self.coordinator.data or {}).get("chores")
+        if raw is None:
+            return []
+        entries = raw if isinstance(raw, list) else raw.get("data", []) or []
+        return [c for c in entries if (c.get("attributes") or {}).get("up_for_grabs")]
+
+    async def async_create_todo_item(self, item: TodoItem) -> None:
+        await self._api.create_chores(
+            self._frame_id,
+            summary=item.summary or "Chore",
+            start=_chore_start(item.due),
+            category_ids=[],
+            description=item.description,
+            up_for_grabs=True,
+        )
         await self.coordinator.async_request_refresh()

@@ -22,7 +22,7 @@ Full [Skylight Calendar Frame](https://www.ourskylight.com/) integration for Hom
 | HA Platform | Entities | Notes |
 |---|---|---|
 | `calendar` | one aggregate + one per Skylight source calendar | Rolling ±14 / +60 day window. Standard `calendar.get_events` service works. Create events on the aggregate entity; edit and delete on any writable source calendar. |
-| `todo` | one per Skylight list (Grocery, To-Do, custom lists) + one chore queue per family member | Full create / rename / complete / delete round-trip. Chores created on a member's queue are assigned to them, and the due date sets the chore's day. |
+| `todo` | one per Skylight list (Grocery, To-Do, custom lists) + one chore queue per family member + one Up for grabs chore list | Full create / rename / complete / delete round-trip. Chores created on a member's queue are assigned to them, chores created on Up for grabs are unassigned and up for grabs, and the due date sets the chore's day. A grabbed chore stays on Up for grabs. |
 | `sensor` | see below | Rich `extra_state_attributes` for use in Lovelace + automations. |
 | `switch` | sleep mode, night light, show captions, show heart, blur effect, start sound, side by side | Direct write to the device. |
 | `number` | brightness (0–255), slideshow speed (0–240s), night light brightness, sleep sound volume | Direct write to the device. |
