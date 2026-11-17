@@ -15,6 +15,8 @@ from types import SimpleNamespace as NS
 from unittest.mock import AsyncMock
 import unittest
 
+from test_service_authorization import load_chore_ids
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -59,7 +61,7 @@ class HomeAssistantError(Exception):
 def load_todo():
     tree = ast.parse((ROOT / "custom_components/skylight/todo.py").read_text(encoding="utf-8"))
     wanted = {"SkylightMemberChoreTodo", "SkylightUpForGrabsTodo",
-              "_chore_is_complete", "_split_chore_uid", "_chore_start"}
+              "_chore_is_complete", "_chore_start"}
     nodes = [n for n in tree.body
              if isinstance(n, (ast.ClassDef, ast.FunctionDef)) and n.name in wanted]
     future = ast.ImportFrom(module="__future__", names=[ast.alias(name="annotations")], level=0)
@@ -69,6 +71,7 @@ def load_todo():
         "TodoListEntity": TodoListEntity, "TodoListEntityFeature": TodoListEntityFeature,
         "CoordinatorEntity": CoordinatorEntity, "DeviceInfo": dict,
         "HomeAssistantError": HomeAssistantError,
+        "split_chore_uid": load_chore_ids().split_chore_uid,
         "SkylightSensorCoordinator": object,
         "DOMAIN": "skylight", "CHORE_COMPLETE_STATUSES": {"complete", "completed"},
         "dt_util": NS(now=lambda: datetime(2026, 11, 16, 18, 0)),
